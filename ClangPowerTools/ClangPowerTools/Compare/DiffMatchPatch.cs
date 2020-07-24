@@ -1609,6 +1609,8 @@ namespace Compare.DiffMatchPatch
       bool firstIteration = true;
       int lineNumberLabelWidth = GetLineNumberWidth(diffs);
 
+      bool diffDetected = false;
+
       foreach (Diff aDiff in diffs)
       {
         var text = aDiff.text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
@@ -1646,16 +1648,71 @@ namespace Compare.DiffMatchPatch
           case Operation.INSERT:
             html.Append("<ins style=\"background:#e6ffe6;text-decoration:none\">").Append(text)
                 .Append("</ins>");
+            diffDetected = true;
             break;
           case Operation.DELETE:
             html.Append("<del style=\"background:#ffe6e6;text-decoration:none\">").Append(text)
                 .Append("</del>");
+            diffDetected = true;
             break;
           case Operation.EQUAL:
-            html.Append("<span>").Append(text).Append("</span>");
+            var textBefore = string.Empty;
+            var textAfter = string.Empty;
+
+            if (diffDetected && Regex.Matches(text, "<br>").Count >= 6)
+            {
+              var textAux = text;
+              for (int counter = 0; counter < 3 && !string.IsNullOrEmpty(textAux); ++counter)
+              {
+                textBefore += textAux.SubstringBefore("<br>") + "<br>";
+                textAux = textAux.SubstringAfter("<br>");
+              }
+
+
+              textAux = text.Reverse();
+              for (int counter = 0; counter < 3 && !string.IsNullOrEmpty(textAux); ++counter)
+              {
+                textAfter += textAux.SubstringBefore(">rb<") + ">rb<";
+                textAux = textAux.SubstringAfter(">rb<");
+              }
+              textAfter = textAfter.Reverse().TrimEnd("<br>");
+
+              // <div style=\"border - top: 6px solid #D3D3D3;width: 100%; margin-top: 20px; margin-bottom: 20px;\"/>
+
+              html.Append("<span>")
+                .Append(textBefore + "<hr style=\"height: 5px; border - width:0; background - color:#D3D3D3\">" + textAfter)
+                .Append("</span>");
+            }
+            else
+            {
+              text = text.Reverse();
+              var textResult = string.Empty;
+              for (int counter = 0; counter < 3 && !string.IsNullOrEmpty(text); ++counter)
+              {
+                textResult += text.SubstringBefore(">rb<") + ">rb<";
+                text = text.SubstringAfter(">rb<");
+              }
+              textResult = textResult.Reverse().TrimEnd("<br>");
+
+              html.Append("<span>").Append(textResult).Append("</span>");
+            }
             break;
         }
       }
+
+      // remove the last EQUAL operation if EQUAL was the last operation detected
+      var finalText = html.ToString().Reverse();
+      var textAfterLastSpan = finalText.SubstringBefore(">naps<");
+
+      if (!textAfterLastSpan.Contains(">led/<") &&
+          !textAfterLastSpan.Contains(">sni/<") &&
+          textAfterLastSpan.Contains("vid<"))
+      {
+        finalText = finalText.SubstringAfter("vid<");
+        finalText = finalText.Reverse();
+        html = new StringBuilder(finalText);
+      }
+
       html.Append("</pre>");
       return html.ToString();
     }
